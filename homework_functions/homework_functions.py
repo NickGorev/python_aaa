@@ -99,7 +99,7 @@ def print_report(stat_report: list):
     stat_report - список статистических данных, возвращаемый get_stat
     """
     for line in stat_report:
-        print('{:<20}{:<20}{:<20}{:<20}{:<20}'.format(*line))
+        print(('{:<20}' * len(line)).format(*line))
 
 
 def save_report(stat_report: list, csv_filename: str,
