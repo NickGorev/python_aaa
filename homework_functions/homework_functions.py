@@ -1,4 +1,9 @@
-def main():
+from collections import defaultdict
+import csv
+from typing import List, Dict
+
+
+def main() -> None:
     """
     Загружает исходные данные
     выводит меню пользователя,
@@ -6,7 +11,6 @@ def main():
     различные функции
     """
     staff = read_csv('data/Corp_Summary.csv')
-    stat_report = get_stat(staff)
 
     print(
         'Выберите пункт меню:',
@@ -16,21 +20,22 @@ def main():
         '"вилка" зарплат в виде мин – макс, среднюю зарплату',
         '3. Сохранить сводный отчёт из предыдущего пункта в виде csv-файла.',
         sep='\n')
+
+    options = {'1': lambda: print_hierarchy(staff),
+               '2': lambda: print_report(get_stat(staff)),
+               '3': lambda: save_report(get_stat(staff),
+                                        input('Введите имя файла: '))
+               }
+
     option = ''
-    options = ['1', '2', '3']
     while option not in options:
         print('Выберите: {}/{}/{}'.format(*options))
         option = input()
 
-    if option == '1':
-        print_hierarchy(staff)
-    elif option == '2':
-        print_report(stat_report)
-    else:
-        save_report(stat_report, input('Введите имя файла: '))
+    options[option]()
 
 
-def read_csv(filename: str, csv_separator: str = ';') -> list:
+def read_csv(filename: str, csv_separator: str = ';') -> List[Dict[str, str]]:
     """
     Читает csv-файл с отчётом о сотрудниках компании.
     Входные данные:
@@ -38,82 +43,109 @@ def read_csv(filename: str, csv_separator: str = ';') -> list:
     csv_separator - разделитель полей csv-файла
     Возвращаемое значение:
     staff - список;
-    элемент списка - словарь с ключами:
-    'name', 'department', 'team', 'position', 'grade', 'salary'
+    элемент списка - словарь с ключами, полученными
+    из строки заколовка csv-файла
     """
-    fields = ['name', 'department', 'team', 'position', 'grade', 'salary']
-    staff = []
     with open(filename, 'r', encoding='utf-8') as inp_file:
-        inp_file.readline()  # пропускаем заголовок csv-файла
-        for line in inp_file:
-            staff.append({key: value for key, value in
-                          zip(fields, line.strip().split(csv_separator))})
+        staff = list(csv.DictReader(inp_file, delimiter=csv_separator))
+
     return staff
 
 
-def print_hierarchy(staff: list):
+def print_hierarchy(staff: List[Dict[str, str]]) -> None:
     """
     Выводит иерархию команд, т.е. департамент и все команды,
     которые входят в него
     Входные данные:
-    staff - список, полученный из функции read_csv
+    staff - список словарей, полученный из функции read_csv
     """
-    hierarchy = {}
+    hierarchy = defaultdict(set)
     for member in staff:
-        hierarchy.setdefault(member['department'], set()).add(member['team'])
+        hierarchy[member['Департамент']].add(member['Отдел'])
 
     for department, teams in hierarchy.items():
         print(f'Входящие в департамент "{department}" команды:')
         print(*teams, sep=', ')
 
 
-def get_stat(staff: list) -> list:
+def get_stat(staff:  List[Dict[str, str]]) -> List[Dict[str, str]]:
     """
     Готовит сводный отчёт по департаментам
     Входные данные:
-    staff - двумерный список, полученный из функции read_csv
+    staff - список словарей, полученный из функции read_csv
     Возвращаемое значение:
-    stat_report - список из списков, содержащих:
+    stat_report - список из словарей, содержащих:
     департамент, численность, мин зарплата, макс зарплата, средняя зарплата;
-    первый элемент списка - список заголовков
     """
-    dep_salaries = {}
+    dep_salaries = defaultdict(list)
     for member in staff:
-        dep_salaries.setdefault(member['department'], [])\
-            .append(int(member['salary']))
+        dep_salaries[member['Департамент']].append(int(member['Оклад']))
 
-    stat_report = [['Департамент', 'численность', 'мин. зарплата',
-                    'макс. зарплата', 'средняя зарплата']]
+    stat_report = []
     for department, salaries in dep_salaries.items():
-        stat_report.append([department, len(salaries), min(salaries),
-                            max(salaries),
-                            round(sum(salaries) / len(salaries), 2)])
+        stat_report.append({
+            'depart': department,
+            'size': len(salaries),
+            'min_salary': min(salaries),
+            'max_salary': max(salaries),
+            'avg_salary': round(sum(salaries) / len(salaries), 2)
+            })
 
     return stat_report
 
 
-def print_report(stat_report: list):
+def print_report(stat_report: List[Dict[str, str]],
+                 header: Dict[str, str] = {
+                                'depart': 'Департамент',
+                                'size': 'численность',
+                                'min_salary': 'мин. зарплата',
+                                'max_salary': 'макс. зарплата',
+                                'avg_salary': 'средняя зарплата'
+                 }) -> None:
     """
     Выводит сводный отчёт по департаментам
     Входные данные:
     stat_report - список статистических данных, возвращаемый get_stat
+    header - заголовок таблицы
     """
-    for line in stat_report:
-        print(('{:<20}' * len(line)).format(*line))
+    def print_line(info_dict: Dict[str, str]) -> None:
+        """
+        Печатает форматированную строку из словаря
+        """
+        for field in stat_report[0].keys():
+            print(f'{info_dict[field]:<20}', end='')
+        print()
+
+    print_line(header)
+    for record in stat_report:
+        print_line(record)
 
 
-def save_report(stat_report: list, csv_filename: str,
-                csv_separator: str = ';'):
+def save_report(stat_report: List[Dict[str, str]],
+                csv_filename: str,
+                csv_separator: str = ';',
+                header: Dict[str, str] = {
+                                'depart': 'Департамент',
+                                'size': 'численность',
+                                'min_salary': 'мин. зарплата',
+                                'max_salary': 'макс. зарплата',
+                                'avg_salary': 'средняя зарплата'
+                 }) -> None:
     """
     Сохраняет сводный отчёт по департаментам в csv файл
     Входные данные:
     stat_report - список статистических данных, возвращаемый get_stat
     csv_filename - имя файла для сохранения результатов
     csv_separator - разделитель полей в csv файле
+    header - заголовок таблицы
     """
     with open(csv_filename, 'w', encoding='utf-8') as otp_file:
-        for line in stat_report:
-            print(*line, sep=csv_separator, file=otp_file)
+        dict_writer = csv.DictWriter(otp_file,
+                                     fieldnames=stat_report[0].keys(),
+                                     delimiter=csv_separator,
+                                     lineterminator='\n')
+        dict_writer.writerow(header)
+        dict_writer.writerows(stat_report)
 
 
 if __name__ == "__main__":
