@@ -6,6 +6,12 @@ class FromJson:
     """Объект из JSON"""
 
     def __init__(self, json_dict: dict):
+        """
+        Создане объекта из словаря JSON
+        ключи словаря - названия атрибутов
+            (в случае совпадения с ключевым словом, добавляется символ "_")
+        значения словаря - значения атрибутов с возможной вложенностью JSON
+        """
         for key, value in json_dict.items():
             while iskeyword(key):
                 key += '_'
@@ -17,7 +23,10 @@ class FromJson:
             else:
                 setattr(self, key, value)
 
-    def _parse_list(self, arr: list):
+    def _parse_list(self, arr: list) -> list:
+        """
+        Обработка списка с учетом возможной вложенности структур JSON
+        """
         ans = []
         for item in arr:
             if isinstance(item, list):
@@ -30,7 +39,10 @@ class FromJson:
 
 
 class ColorizeMixin:
-    """Изменяет цвет вывода в консоль метода __repr__"""
+    """
+    Изменяет цвет вывода в консоль метода __repr__
+    Подменяет функцию __repr__() у класса классе переменной self
+    """
 
     color_changed = False
 
@@ -103,6 +115,7 @@ if __name__ == '__main__':
             }"""
         )
     )
+    assert advert_1.title == "test"
     assert advert_2.price == 100
 
     # некорректный (отрицательный) атрибут price
@@ -151,7 +164,7 @@ if __name__ == '__main__':
     )
     assert advert_5.location.address == "город Москва, Лесная, 7"
 
-    # выводит ĸатегорию при обращении через точĸу: corgi.class
+    # выводит ĸатегорию при обращении через точĸу: corgi.class_
     corgi = Advert(
         json.loads(
             """{
