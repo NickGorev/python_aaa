@@ -1,4 +1,6 @@
 import json
+import functools
+from typing import Callable
 from keyword import iskeyword
 
 
@@ -13,7 +15,7 @@ class FromJson:
         значения словаря - значения атрибутов с возможной вложенностью JSON
         """
         for key, value in json_dict.items():
-            while iskeyword(key):
+            if iskeyword(key):
                 key += '_'
 
             if isinstance(value, dict):
@@ -44,22 +46,19 @@ class ColorizeMixin:
     Подменяет функцию __repr__() у класса классе переменной self
     """
 
-    color_changed = False
+    def __init_subclass__(cls, *args, **kwargs):
+        super().__init_subclass__(*args, **kwargs)
+        cls.__repr__ = cls._replace_repr(cls.__repr__)
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        if not ColorizeMixin.color_changed:
-            initial_repr: callable = getattr(self.__class__, "__repr__")
-
-            def new_repr(self):
-                color_escape = "\033[1;" + str(self.repr_color_code) + ";40m"
-                drop_color = "\033[1;0;40m"
-                return color_escape + initial_repr(self) + drop_color
-
-            setattr(self.__class__, "__repr__", new_repr)
-
-            ColorizeMixin.color_changed = True
+    @classmethod
+    def _replace_repr(cls, func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            text: str = func(*args, **kwargs)
+            color_escape = "\033[1;" + str(cls.repr_color_code) + ";40m"
+            drop_color = "\033[1;0;40m"
+            return color_escape + text + drop_color
+        return wrapper
 
 
 class Advert(ColorizeMixin, FromJson):
